@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>정삼각형 ABC의 평행이동</title>
+<style>
+body{margin:0;font-family:Arial,"Noto Sans KR",sans-serif;background:#f7f8fb;color:#172033}
+.wrap{max-width:1100px;margin:auto;padding:16px}
+h1{margin:0 0 6px}.sub{color:#667085;margin-bottom:14px;line-height:1.6}
+.layout{display:grid;grid-template-columns:1.4fr .8fr;gap:14px}
+.card{background:#fff;padding:14px;border-radius:16px;box-shadow:0 6px 22px rgba(0,0,0,.07)}
+canvas{width:100%;height:auto;background:#fff;border-radius:12px}
+.controls{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
+button{padding:12px;border:0;border-radius:10px;font-weight:700;font-size:15px}
+.blue{background:#eaf0ff;color:#2458b8}.red{background:#fff0f2;color:#b5213b}.primary{background:#6c5ce7;color:#fff}
+.info{background:#f5f2ff;padding:12px;border-radius:12px;margin-bottom:10px}
+.step{border:1px solid #e4e7ec;border-radius:12px;padding:12px;margin:8px 0}
+.step.active{outline:3px solid rgba(108,92,231,.18)}
+.f{font-size:20px;font-weight:800;line-height:1.5}
+.blueT{color:#3867d6}.redT{color:#eb3b5a}
+@media(max-width:850px){.layout{grid-template-columns:1fr}.controls{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>정삼각형 ABC의 평행이동</h1>
+<div class="sub">A(0, √3), B(-1, 0), C(1, 0)을 <b>x축 방향으로 a만큼 먼저</b> 이동한 뒤, <b>y축 방향으로 b만큼</b> 이동합니다.</div>
+<div class="layout">
+  <div class="card">
+    <canvas id="cv" width="760" height="600"></canvas>
+    <div class="controls">
+      <button class="blue" id="xBtn">① x축 이동</button>
+      <button class="red" id="yBtn">② y축 이동</button>
+      <button class="primary" id="allBtn">전체 재생</button>
+      <button id="pauseBtn">일시정지</button>
+      <button id="resetBtn">초기화</button>
+      <button id="pathBtn">이동 경로 ON</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="info">
+      <div style="font-weight:800;margin-bottom:8px">이동량 설정</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <label>x축 이동량 a
+          <input id="dxInput" type="number" value="4" step="1"
+            style="width:100%;padding:10px;margin-top:4px;border:1px solid #d0d5dd;border-radius:9px;font-size:18px">
+        </label>
+        <label>y축 이동량 b
+          <input id="dyInput" type="number" value="-2" step="1"
+            style="width:100%;padding:10px;margin-top:4px;border:1px solid #d0d5dd;border-radius:9px;font-size:18px">
+        </label>
+      </div>
+      <button id="applyBtn" class="primary" style="width:100%;margin-top:9px">이동량 적용</button>
+    </div>
+    <div class="info">
+      <div class="f" id="status">이동 전</div>
+      <div id="coords">A(0, √3), B(-1,0), C(1,0)</div>
+    </div>
+    <div class="step active" id="s0"><b>출발</b><div class="f">A(0, √3), B(-1,0), C(1,0)</div></div>
+    <div class="step" id="s1"><b id="step1Title">1단계 · x축으로 4만큼</b><div class="f blueT" id="step1Formula">(x,y) → (x+4,y)</div><div id="step1Coords">A₁(4,√3), B₁(3,0), C₁(5,0)</div></div>
+    <div class="step" id="s2"><b id="step2Title">2단계 · y축으로 -2만큼</b><div class="f redT" id="step2Formula">(x+4,y) → (x+4,y-2)</div><div id="step2Coords">A′(4,√3-2), B′(3,-2), C′(5,-2)</div></div>
+  </div>
+</div>
+</div>
+<script>
+const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+const W=cv.width,H=cv.height,p=55,xMin=-4,xMax=8,yMin=-4,yMax=5;
+const sx=(W-2*p)/(xMax-xMin), sy=(H-2*p)/(yMax-yMin);
+const rt=Math.sqrt(3), base=[{n:'A',x:0,y:rt},{n:'B',x:-1,y:0},{n:'C',x:1,y:0}];
+let phase=0,t=0,anim=false,last=null,showPath=false,chain=false,DX=4,DY=-2;
+
+function px(x,y){return [p+(x-xMin)*sx,H-p-(y-yMin)*sy]}
+function pts(){
+  let dx=0,dy=0;
+  if(phase===1) dx=DX*t;
+  if(phase===2){dx=DX;dy=DY*t}
+  if(phase===3){dx=DX;dy=DY}
+  return base.map(q=>({n:q.n,x:q.x+dx,y:q.y+dy}));
+}
+function axes(){
+  ctx.clearRect(0,0,W,H);ctx.fillStyle='#fff';ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle='#d9deea';ctx.lineWidth=1;
+  for(let x=Math.ceil(xMin);x<=xMax;x++){let X=px(x,0)[0];ctx.beginPath();ctx.moveTo(X,p);ctx.lineTo(X,H-p);ctx.stroke()}
+  for(let y=Math.ceil(yMin);y<=yMax;y++){let Y=px(0,y)[1];ctx.beginPath();ctx.moveTo(p,Y);ctx.lineTo(W-p,Y);ctx.stroke()}
+  let [X0,Y0]=px(0,0);ctx.strokeStyle='#172033';ctx.lineWidth=2;
+  ctx.beginPath();ctx.moveTo(p,Y0);ctx.lineTo(W-p,Y0);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(X0,p);ctx.lineTo(X0,H-p);ctx.stroke();
+  ctx.font='14px Arial';ctx.fillStyle='#667085';ctx.textAlign='center';
+  for(let x=Math.ceil(xMin);x<=xMax;x++){let X=px(x,0)[0];ctx.fillText(x,X,Y0+20)}
+  ctx.textAlign='right';
+  for(let y=Math.ceil(yMin);y<=yMax;y++){if(y!==0){let Y=px(0,y)[1];ctx.fillText(y,X0-8,Y+5)}}
+}
+function tri(P,stroke,fill,alpha=1,labelMode=''){
+  ctx.globalAlpha=alpha;ctx.beginPath();let [x0,y0]=px(P[0].x,P[0].y);ctx.moveTo(x0,y0);
+  for(let i=1;i<P.length;i++){let [x,y]=px(P[i].x,P[i].y);ctx.lineTo(x,y)}ctx.closePath();
+  ctx.fillStyle=fill;ctx.fill();ctx.strokeStyle=stroke;ctx.lineWidth=3;ctx.stroke();
+  P.forEach(q=>{let [x,y]=px(q.x,q.y);ctx.fillStyle=stroke;ctx.beginPath();ctx.arc(x,y,5,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#172033';ctx.font='bold 16px Arial';ctx.textAlign='left';ctx.fillText(q.n+labelMode,x+8,y-8)});
+  ctx.globalAlpha=1;
+}
+function paths(){
+  if(!showPath)return;
+  base.forEach(q=>{let a=px(q.x,q.y),m=px(q.x+DX,q.y),e=px(q.x+DX,q.y-2);
+    ctx.setLineDash([6,5]);ctx.lineWidth=2;ctx.strokeStyle='rgba(56,103,214,.55)';
+    ctx.beginPath();ctx.moveTo(...a);ctx.lineTo(...m);ctx.stroke();
+    ctx.strokeStyle='rgba(235,59,90,.55)';ctx.beginPath();ctx.moveTo(...m);ctx.lineTo(...e);ctx.stroke();ctx.setLineDash([])});
+}
+function draw(){
+  axes();paths();tri(base,'#555','#f8dddd',phase===0?1:.25,'');
+  if(phase>=2){let mid=base.map(q=>({n:q.n,x:q.x+DX,y:q.y}));tri(mid,'#3867d6','#dfe8ff',.3,'₁')}
+  if(phase>0){let P=pts();tri(P,phase===1?'#3867d6':'#6c5ce7',phase===1?'#e6edff':'#eee9ff',1,phase===1?'₁':'′')}
+  let A=base[0],s=px(A.x,A.y),m=px(A.x+DX,A.y),e=px(A.x+DX,A.y+DY);
+  if(phase>=1){let c=phase===1?px(A.x+DX*t,A.y):m;ctx.strokeStyle='#3867d6';ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(...s);ctx.lineTo(...c);ctx.stroke()}
+  if(phase>=2){let c=phase===2?px(A.x+DX,A.y+DY*t):e;ctx.strokeStyle='#eb3b5a';ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(...m);ctx.lineTo(...c);ctx.stroke()}
+}
+function panel(){
+  [s0,s1,s2].forEach(s=>s.classList.remove('active'));
+  if(phase===0){
+    s0.classList.add('active');
+    status.textContent='이동 전';
+  }else if(phase===1){
+    s1.classList.add('active');
+    status.textContent='1단계: x축 방향으로 이동 중';
+  }else if(phase===2){
+    s2.classList.add('active');
+    status.textContent='2단계: y축 방향으로 이동 중';
+  }else{
+    s2.classList.add('active');
+    status.textContent='평행이동 완료';
+  }
+}
+
+function signed(v){
+  const n=Math.abs(v)<0.00001?0:v;
+  const s=(Math.round(n*100)/100).toString();
+  return n>0?'+'+s:s;
+}
+function xExpr(x){
+  const v=x+DX;
+  return Number.isInteger(v)?String(v):v.toFixed(2);
+}
+function yAExpr(){
+  if(DY===0) return '√3';
+  return DY>0 ? `√3+${DY}` : `√3${DY}`;
+}
+function finalCoordText(){
+  return `A′(${xExpr(0)}, ${yAExpr()}), B′(${xExpr(-1)},${DY}), C′(${xExpr(1)},${DY})`;
+}
+function updateStepText(){
+  document.getElementById('step1Title').textContent=`1단계 · x축으로 ${DX}만큼`;
+  document.getElementById('step1Formula').textContent=`(x,y) → (x${DX>=0?'+':''}${DX},y)`;
+  document.getElementById('step1Coords').textContent=
+    `A₁(${xExpr(0)},√3), B₁(${xExpr(-1)},0), C₁(${xExpr(1)},0)`;
+
+  document.getElementById('step2Title').textContent=`2단계 · y축으로 ${DY}만큼`;
+  document.getElementById('step2Formula').textContent=
+    `(x${DX>=0?'+':''}${DX},y) → (x${DX>=0?'+':''}${DX},y${DY>=0?'+':''}${DY})`;
+  document.getElementById('step2Coords').textContent=finalCoordText();
+
+  const after=document.getElementById('afterCoords');
+  if(after) after.textContent=finalCoordText();
+}
+document.getElementById('applyBtn').onclick=()=>{
+  const nx=Number(document.getElementById('dxInput').value);
+  const ny=Number(document.getElementById('dyInput').value);
+  if(!Number.isFinite(nx)||!Number.isFinite(ny)) return;
+  DX=nx;DY=ny;anim=false;chain=false;phase=0;t=0;last=null;
+  updateStepText();draw();panel();
+};
+
+function start(ph){phase=ph;t=0;anim=true;last=null;draw();panel();requestAnimationFrame(loop)}
+function loop(ts){
+  if(!anim)return;
+  if(last===null)last=ts;let dt=(ts-last)/1000;last=ts;t+=dt*.75;
+  if(t>=1){t=1;draw();panel();anim=false;last=null;
+    if(chain&&phase===1){setTimeout(()=>{chain=false;start(2)},350)}
+    else if(phase===2){phase=3;draw();panel()}
+    return}
+  draw();panel();requestAnimationFrame(loop)
+}
+xBtn.onclick=()=>start(1);
+yBtn.onclick=()=>start(2);
+allBtn.onclick=()=>{chain=true;start(1)};
+pauseBtn.onclick=()=>anim=false;
+resetBtn.onclick=()=>{anim=false;phase=0;t=0;chain=false;draw();panel()};
+pathBtn.onclick=e=>{showPath=!showPath;e.target.textContent='이동 경로 '+(showPath?'OFF':'ON');draw()};
+updateStepText();draw();panel();
+</script>
+</body>
+</html>
